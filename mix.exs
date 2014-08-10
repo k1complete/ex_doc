@@ -12,7 +12,11 @@ defmodule ExDoc.Mixfile do
 
   defp deps do
     [{:earmark, "~> 0.1", only: [:dev, :test]},
-     {:markdown, github: "devinus/markdown", only: [:dev, :test]}]
+     {:markdown, github: "devinus/markdown", only: [:dev, :test]},
+     {:exgettext, path: "../../exgettext"},
+     {:l10n_iex, path: "../../exgettext/l10n_iex"},
+     {:l10n_mix, path: "../../exgettext/l10n_mix"}
+    ]
   end
 
   defp aliases do
