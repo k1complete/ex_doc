@@ -5,6 +5,7 @@ Code.prepend_path Path.expand("../_build/dev/lib/ex_doc/ebin", __DIR__)
 Code.prepend_path Path.expand("../_build/dev/lib/exgettext/ebin", __DIR__)
 Code.prepend_path Path.expand("../_build/dev/lib/l10n_iex/ebin", __DIR__)
 Code.prepend_path Path.expand("../_build/dev/lib/l10n_mix/ebin", __DIR__)
+Code.prepend_path Path.expand("../_build/dev/lib/l10n_elixir/ebin", __DIR__)
 
 if Code.ensure_loaded?(ExDoc.CLI) do
   ExDoc.CLI.run(System.argv)
