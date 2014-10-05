@@ -1,3 +1,4 @@
+use Exgettext
 defmodule ExDoc.ModuleNode do
   defstruct id: nil, module: nil, moduledoc: nil,
     docs: [], typespecs: [], source: nil, type: nil
@@ -83,23 +84,6 @@ defmodule ExDoc.Retriever do
     end
   end
 
-  defp l10n_get_app(config) do
-    files = Path.wildcard Path.expand("*.app", config.source_beam)
-    String.to_atom(Path.basename(files, ".app"))
-  end
-  defp l10n_get_func(f, source_path, source_url, specs, cb_impls, config) do
-    {{name, arity}, line, type, signature, doc} = f
-    app = l10n_get_app(config)
-    doc = Exgettext.Runtime.gettext(app, doc)
-    f = {{name, arity}, line, type, signature, doc}
-    get_function(f, source_path, source_url, specs, cb_impls)
-  end
-  defp l10n_get_mod(moduledoc, config) do
-    app = l10n_get_app(config)
-    doc = Exgettext.Runtime.gettext(app, moduledoc)
-    doc
-  end
-
   defp generate_node(nil, _, _), do: nil
 
   defp generate_node(module, type, config) do
@@ -110,8 +94,7 @@ defmodule ExDoc.Retriever do
     callbacks = callbacks_implemented_by(module)
 
     docs = Enum.filter_map Code.get_docs(module, :docs), &has_doc?(&1, type),
-                           &l10n_get_func(&1, source_path, source_url, 
-                                          specs, callbacks, config)
+                           &get_function(&1, source_path, source_url, specs, callbacks)
 
     if type == :behaviour do
       callbacks = Enum.into(Kernel.Typespec.beam_callbacks(module) || [], %{})
@@ -120,8 +103,6 @@ defmodule ExDoc.Retriever do
     end
 
     { line, moduledoc } = Code.get_docs(module, :moduledoc)
-
-    moduledoc = l10n_get_mod(moduledoc, config)
 
     %ExDoc.ModuleNode{
       id: inspect(module),
