@@ -1,4 +1,5 @@
 use Exgettext
+
 defmodule ExDoc.ModuleNode do
   defstruct id: nil, module: nil, moduledoc: nil,
     docs: [], typespecs: [], source: nil, type: nil
@@ -90,14 +91,14 @@ defmodule ExDoc.Retriever do
     source_url  = config.source_url_pattern
     source_path = source_path(module, config)
 
-    specs = Enum.into(Kernel.Typespec.beam_specs(module) || [], %{})
+    specs = Enum.into(Typespec.beam_specs(module) || [], %{})
     callbacks = callbacks_implemented_by(module)
 
     docs = Enum.filter_map Code.get_docs(module, :docs), &has_doc?(&1, type),
                            &get_function(&1, source_path, source_url, specs, callbacks)
 
     if type == :behaviour do
-      callbacks = Enum.into(Kernel.Typespec.beam_callbacks(module) || [], %{})
+      callbacks = Enum.into(Typespec.beam_callbacks(module) || [], %{})
       docs = Enum.map(Enum.sort(module.__behaviour__(:docs)),
                       &get_callback(&1, source_path, source_url, callbacks)) ++ docs
     end
@@ -142,7 +143,7 @@ defmodule ExDoc.Retriever do
     behaviour = Dict.get(cb_impls, { name, arity })
 
     doc =
-      if nil?(doc) && behaviour do
+      if is_nil(doc) && behaviour do
         "Callback implementation of `#{inspect behaviour}.#{name}/#{arity}`."
       else
         doc
@@ -150,7 +151,7 @@ defmodule ExDoc.Retriever do
 
     specs = all_specs
             |> Dict.get({ name, arity }, [])
-            |> Enum.map(&Kernel.Typespec.spec_to_ast(name, &1))
+            |> Enum.map(&Typespec.spec_to_ast(name, &1))
 
     %ExDoc.FunctionNode{
       id: "#{name}/#{arity}",
@@ -168,7 +169,7 @@ defmodule ExDoc.Retriever do
     { { name, arity }, line, _kind, doc } = callback
 
     specs = Dict.get(callbacks, { name, arity }, [])
-            |> Enum.map(&Kernel.Typespec.spec_to_ast(name, &1))
+            |> Enum.map(&Typespec.spec_to_ast(name, &1))
 
     %ExDoc.FunctionNode{
       id: "#{name}/#{arity}",
@@ -229,11 +230,11 @@ defmodule ExDoc.Retriever do
   end
 
   defp get_types(module) do
-    all  = Kernel.Typespec.beam_types(module) || []
-    docs = Enum.into(Kernel.Typespec.beam_typedocs(module) || [], %{})
+    all  = Typespec.beam_types(module) || []
+    docs = Enum.into(Typespec.beam_typedocs(module) || [], %{})
 
     for { type, { name, _, args } = tuple } <- all, type != :typep do
-      spec  = process_type_ast(Kernel.Typespec.type_to_ast(tuple), type)
+      spec  = process_type_ast(Typespec.type_to_ast(tuple), type)
       arity = length(args)
       doc   = docs[{ name, arity }]
       %ExDoc.TypeNode{
