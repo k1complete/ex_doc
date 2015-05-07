@@ -4,7 +4,7 @@ defmodule ExDoc.Mixfile do
   def project do
     [app:        :ex_doc,
      version:    "0.5.1",
-     elixir:     "~> 0.15.0-dev",
+     elixir:     "~> 1.1.0-dev",
      deps:       deps,
      aliases:    aliases,
      source_url: "https://github.com/elixir-lang/ex_doc/"]
@@ -13,10 +13,12 @@ defmodule ExDoc.Mixfile do
   defp deps do
     [{:earmark, "~> 0.1", only: [:dev, :test]},
      {:markdown, github: "devinus/markdown", only: [:dev, :test]},
-     {:exgettext, path: "../../exgettext"},
-     {:l10n_iex, path: "../../exgettext/l10n_iex"},
-     {:l10n_elixir, path: "../../exgettext/l10n_elixir"},
-     {:l10n_mix, path: "../../exgettext/l10n_mix"}
+     {:exgettext, github: "k1complete/exgettext"},
+#     {:exgettext, path: "../../exgettext"},
+     {:l10n_iex, github: "k1complete/l10n_iex"},
+     {:l10n_elixir, github: "k1complete/l10n_elixir"},
+#     {:l10n_ex_unit, path: "../../exgettext/l10n_ex_unit"}
+     {:l10n_ex_unit, github: "k1complete/l10n_ex_unit"}
     ]
   end
 
