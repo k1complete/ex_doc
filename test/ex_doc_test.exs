@@ -15,6 +15,22 @@ defmodule ExDocTest do
     end
   end
 
+  test "build_config & normalize_options" do
+    project = "Elixir"
+    version = "1"
+    options = [formatter: IdentityFormatter, retriever: IdentityRetriever,
+               source_root: "root_dir", source_beam: "beam_dir",]
+
+    {_, config} = ExDoc.generate_docs project, version, Keyword.merge(options, [output: "test/tmp/docs"])
+    assert config.output == "test/tmp/docs"
+
+    {_, config} = ExDoc.generate_docs project, version, Keyword.merge(options, [output: "test/tmp/docs/"])
+    assert config.output == "test/tmp/docs"
+
+    {_, config} = ExDoc.generate_docs project, version, Keyword.merge(options, [output: "test/tmp/docs//"])
+    assert config.output == "test/tmp/docs"
+  end
+
   test "source_beam sets source dir" do
     options = [formatter: IdentityFormatter, retriever: IdentityRetriever,
                source_root: "root_dir", source_beam: "beam_dir"]
@@ -22,24 +38,55 @@ defmodule ExDocTest do
     assert source_dir == options[:source_beam]
   end
 
-
   defp run(args) do
     ExDoc.CLI.run(args, &{&1, &2, &3})
   end
 
   test "minimum command-line options" do
-    assert {"ExDoc", "1.2.3", [source_beam: "/"]} == run(["ExDoc", "1.2.3", "/"])
+    assert {"ExDoc", "1.2.3", [extras: [], source_beam: "/"]} == run(["ExDoc", "1.2.3", "/"])
   end
 
   test "command-line config" do
     File.write!("test.config", ~s([key: "val"]))
 
-    {project, version, opts} = run(["ExDoc", "--readme", "1.2.3", "...", "-c", "test.config"])
+    {project, version, opts} = run(["ExDoc", "--extra", "README.md", "1.2.3", "...", "-c", "test.config"])
 
     assert project == "ExDoc"
     assert version == "1.2.3"
-    assert Enum.sort(opts) == [formatter_opts: [key: "val"], readme: true, source_beam: "..."]
+    assert Enum.sort(opts) == [extras: ["README.md"], formatter_opts: [key: "val"], source_beam: "..."]
   after
     File.rm!("test.config")
   end
+
+  test "command-line config does not exists" do
+    assert_raise RuntimeError,
+                 "Could not load config. No such file: test.config",
+                 fn -> run(["ExDoc", "1.2.3", "...", "-c", "test.config"]) end
+  end
+
+  test "command-line config must be a keyword list" do
+    File.write!("test.config", ~s(%{"extras" => "README.md"}))
+
+    assert_raise RuntimeError,
+                 "Bad config. Expected a keyword list",
+                 fn -> run(["ExDoc", "1.2.3", "...", "-c", "test.config"]) end
+  after
+    File.rm!("test.config")
+  end
+
+  test "formatter module not found" do
+    project = "Elixir"
+    version = "1"
+    options = [formatter: "pdf", retriever: IdentityRetriever,
+               source_root: "root_dir", source_beam: "beam_dir",]
+
+    assert_raise RuntimeError,
+                 "Formatter module not found for: pdf",
+                 fn -> ExDoc.generate_docs project, version, options end
+  end
+
+  test "version" do
+    assert ExDoc.version =~ ~r{\d+\.\d+\.\d+} 
+  end
+
 end

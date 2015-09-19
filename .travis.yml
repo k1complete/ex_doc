@@ -1,12 +1,30 @@
 language: erlang
+sudo: false
+elixir:
+  - 1.0.2
+otp_release:
+  - 17.4
+node_js:
+  - "iojs"
 notifications:
   recipients:
     - jose.valim@plataformatec.com.br
-otp_release:
-  - 17.0
 before_install:
-  - sudo apt-get install -y pandoc
-  - git clone https://github.com/elixir-lang/elixir
-  - cd elixir && make && cd ..
-before_script: "export PATH=`pwd`/elixir/bin:$PATH"
-script: "mix do local.hex --force, deps.get && mix test --include pandoc"
+  - wget -c https://github.com/jgm/pandoc/releases/download/1.15.0.6/pandoc-1.15.0.6-1-amd64.deb
+  - ar -x pandoc-1.15.0.6-1-amd64.deb
+  - tar xzf data.tar.gz
+  - export PATH=$PATH:$PWD/usr/bin/
+before_script:
+  - export DISPLAY=:99.0
+  - sh -e /etc/init.d/xvfb start
+  - npm install -g npm
+  - npm install
+env:
+  - MIX_ENV=test
+script:
+  - "mix do local.hex --force, deps.get, test --include pandoc, coveralls.travis"
+  - node_modules/.bin/gulp
+cache:
+  directories:
+    - node_modules
+    - deps

@@ -1,40 +1,59 @@
 defmodule ExDoc do
   defmodule Config do
     defstruct [
-      output: "docs", source_root: nil, source_url: nil, source_url_pattern: nil,
-      homepage_url: nil, source_beam: nil, retriever: ExDoc.Retriever,
-      formatter: "html", project: nil, version: nil, main: nil,
-      readme: false, formatter_opts: []
+      extras: [],
+      formatter: "html",
+      formatter_opts: [],
+      homepage_url: nil,
+      logo: nil,
+      main: nil,
+      output: "doc",
+      project: nil,
+      retriever: ExDoc.Retriever,
+      source_beam: nil,
+      source_root: nil,
+      source_url: nil,
+      source_url_pattern: nil,
+      title: nil,
+      version: nil
     ]
   end
+
+  @ex_doc_version Mix.Project.config[:version]
+
+  @doc """
+  Returns the ExDoc version (used in templates).
+  """
+  @spec version :: String.t
+  def version, do: @ex_doc_version
 
   @doc """
   Generates documentation for the given `project`, `version`
   and `options`.
   """
+  @spec generate_docs(String.t, String.t, Keyword.t) :: atom
   def generate_docs(project, version, options) when is_binary(project) and is_binary(version) and is_list(options) do
     config = build_config(project, version, options)
     docs = config.retriever.docs_from_dir(config.source_beam, config)
     find_formatter(config.formatter).run(docs, config)
   end
 
+  # Builds configuration by merging `options`, and normalizing the options.
+  @spec build_config(String.t, String.t, Keyword.t) :: %ExDoc.Config{}
   defp build_config(project, version, options) do
     options = normalize_options(options)
     preconfig = %Config{
       project: project,
       version: version,
-      main: options[:main] || project,
+      main: options[:main],
       homepage_url: options[:homepage_url],
       source_root: options[:source_root] || File.cwd!,
     }
     struct(preconfig, options)
   end
 
-  # short path for programmatic interface
+  # Short path for programmatic interface
   defp find_formatter(modname) when is_atom(modname), do: modname
-
-  # short path for the stock formatters
-  defp find_formatter("html"), do: ExDoc.Formatter.HTML
 
   defp find_formatter("ExDoc.Formatter." <> _ = name) do
     Module.concat([name]) |> check_formatter_module(name)
@@ -56,7 +75,13 @@ defmodule ExDoc do
 
   defp normalize_options(options) do
     pattern = options[:source_url_pattern] || guess_url(options[:source_url], options[:source_ref] || "master")
-    Keyword.put(options, :source_url_pattern, pattern)
+    options = Keyword.put(options, :source_url_pattern, pattern)
+
+    if is_bitstring(options[:output]) do
+      options = Keyword.put(options, :output, String.rstrip(options[:output], ?/))
+    end
+
+    options
   end
 
   defp guess_url(url = <<"https://github.com/", _ :: binary>>, ref) do

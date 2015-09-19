@@ -9,18 +9,8 @@ defmodule ExDoc.Formatter.HTML.Templates do
   Generate content from the module template for a given `node`
   """
   def module_page(node, config, all) do
-    types       = node.typespecs
-    functions   = Enum.filter node.docs, &match?(%ExDoc.FunctionNode{type: :def}, &1)
-    macros      = Enum.filter node.docs, &match?(%ExDoc.FunctionNode{type: :defmacro}, &1)
-    callbacks   = Enum.filter node.docs, &match?(%ExDoc.FunctionNode{type: :defcallback}, &1)
-    module_template(config, node, types, functions, macros, callbacks, all)
-  end
-
-  @doc """
-  Generates the listing.
-  """
-  def list_page(scope, nodes, config, has_readme) do
-    list_template(scope, nodes, config, has_readme)
+    types = group_types(node)
+    module_template(config, node, types.types, types.functions, types.macros, types.callbacks, all)
   end
 
   # Get the full specs from a function, already in HTML form.
@@ -37,9 +27,22 @@ defmodule ExDoc.Formatter.HTML.Templates do
   # Get the pretty name of a function node
   defp pretty_type(%ExDoc.FunctionNode{type: t}) do
     case t do
-      :def          -> "function"
-      :defmacro     -> "macro"
-      :defcallback  -> "callback"
+      :def           -> "function"
+      :defmacro      -> "macro"
+      :callback      -> "callback"
+      :macrocallback -> "macro callback"
+      :type          -> "type"
+    end
+  end
+
+  # Generate a link id
+  defp link_id(node), do: link_id(node.id, node.type)
+  defp link_id(id, type) do
+    case type do
+      :macrocallback -> "c:#{id}"
+      :callback      -> "c:#{id}"
+      :type             -> "t:#{id}"
+      _                 -> "#{id}"
     end
   end
 
@@ -49,63 +52,80 @@ defmodule ExDoc.Formatter.HTML.Templates do
     String.split(doc, ~r/\n\s*\n/) |> hd |> String.strip() |> String.rstrip(?.)
   end
 
-  # A bit of standard HTML to insert the to-top arrow.
-  defp to_top_link() do
-    "<a class=\"to_top_link\" href=\"#content\" title=\"To the top of the page\">&uarr;</a>"
-  end
-
   defp presence([]),    do: nil
   defp presence(other), do: other
 
   defp h(binary) do
-    escape_map = [{ ~r(&), "\\&amp;" }, { ~r(<), "\\&lt;" }, { ~r(>), "\\&gt;" }, { ~r("), "\\&quot;" }]
-    Enum.reduce escape_map, binary, fn({ re, escape }, acc) -> Regex.replace(re, acc, escape) end
+    escape_map = [{"&", "&amp;"}, {"<", "&lt;"}, {">", "&gt;"}, {"\"", "&quot;"}]
+    Enum.reduce escape_map, binary, fn({pattern, escape}, acc) ->
+      String.replace(acc, pattern, escape)
+    end
   end
 
-  # Get the breadcrumbs HTML.
-  #
-  # If module is :overview generates the breadcrumbs for the overview.
-  defp module_breadcrumbs(config, modules, module) do
-    parts = [root_breadcrumbs(config), { "Overview", "overview.html" }]
-    aliases = Module.split(module.module)
-    modules = Enum.map(modules, &(&1.module))
-
-    { crumbs, _ } =
-      Enum.map_reduce(aliases, [], fn item, parents ->
-        path = parents ++ [item]
-        mod  = Module.concat(path)
-        page = if mod in modules, do: inspect(mod) <> ".html"
-        { { item, page }, path }
-      end)
-
-    generate_breadcrumbs(parts ++ crumbs)
+  defp sidebar_items_object(node) do
+    ~s{"id":"#{node.id}","anchor":"#{h link_id(node)}"}
   end
 
-  defp page_breadcrumbs(config, title, link) do
-    generate_breadcrumbs [root_breadcrumbs(config), { title, link }]
+  defp sidebar_items_by_type({type, node}) do
+    objects = node |> Enum.map_join("},{", &(sidebar_items_object(&1)))
+    ~s/"#{type}":[{#{objects}}]/
   end
 
-  defp root_breadcrumbs(config) do
-    { "#{config.project} v#{config.version}", nil }
+  defp sidebar_items_entry(node) do
+    if Enum.empty?(node.docs) do
+      ~s/"id":"#{node.id}"/
+    else
+      types =
+        group_types(node)
+        |> Enum.reject(fn {_type, entries} -> entries == [] end)
+        |> Enum.map_join(",", &sidebar_items_by_type(&1))
+      ~s/"id":"#{node.id}",#{types}/
+    end
   end
 
-  defp generate_breadcrumbs(crumbs) do
-    Enum.map_join(crumbs, " &rarr; ", fn { name, ref } ->
-      if ref, do: "<a href=\"#{h(ref)}\">#{h(name)}</a>", else: h(name)
-    end)
+  defp sidebar_items_keys(node) do
+    keys =
+      node.value
+      |> Enum.into([], &(sidebar_items_entry(&1)))
+      |> Enum.join("},{")
+    ~s/"#{node.id}":[{#{keys}}]/
   end
+
+  @spec create_sidebar_items(list) :: String.t
+  def create_sidebar_items(input) do
+    object =
+      input
+      |> Enum.into([], &(sidebar_items_keys(&1)))
+      |> Enum.join(",")
+    "sidebarNodes={#{object}}"
+  end
+
+  defp group_types(node) do
+    %{types: node.typespecs,
+      functions: Enum.filter(node.docs, & &1.type in [:def]),
+      macros: Enum.filter(node.docs, & &1.type in [:defmacro]),
+      callbacks: Enum.filter(node.docs, & &1.type in [:callback, :macrocallback])}
+  end
+
+  defp logo_path(%{logo: nil}), do: nil
+  defp logo_path(%{logo: logo}), do: "assets/logo#{Path.extname(logo)}"
+
+  defp extra_title(path), do: path |> String.upcase |> Path.basename(".MD")
 
   templates = [
-    index_template: [:config],
-    list_template: [:scope, :nodes, :config, :has_readme],
-    overview_template: [:config, :modules, :exceptions, :protocols],
-    module_template: [:config, :module, :types, :functions, :macros, :callbacks, :all],
-    readme_template: [:config, :content],
-    list_item_template: [:node],
-    overview_entry_template: [:node],
-    summary_template: [:node],
     detail_template: [:node, :_module],
+    footer_template: [],
+    head_template: [:config, :page],
+    module_template: [:config, :module, :types, :functions, :macros, :callbacks, :all],
+    not_found_template: [:config, :modules, :exceptions, :protocols],
+    overview_entry_template: [:node],
+    overview_template: [:config, :modules, :exceptions, :protocols],
+    extra_template: [:config, :modules, :exceptions, :protocols, :content],
+    sidebar_template: [:config, :modules, :exceptions, :protocols],
+    summary_template: [:name, :nodes],
+    summary_item_template: [:node],
     type_detail_template: [:node, :_module],
+    redirect_template: [:config, :redirect_to],
   ]
 
   Enum.each templates, fn({ name, args }) ->

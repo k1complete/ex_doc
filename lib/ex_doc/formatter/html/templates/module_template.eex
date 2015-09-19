@@ -1,96 +1,62 @@
-<!DOCTYPE html>
-<html>
-  <head>
-    <title><%= module.id %></title>
-    <meta charset="utf-8">
-    <link rel="stylesheet" href="css/style.css" type="text/css" media="screen" charset="utf-8" />
-
-    <script type="text/javascript" charset="utf-8">
-      relpath = '';
-      if (relpath != '') relpath += '/';
-    </script>
-
-    <script type="text/javascript" charset="utf-8" src="js/jquery.js"></script>
-    <script type="text/javascript" charset="utf-8" src="js/app.js"></script>
-  </head>
-
-  <body>
-    <script type="text/javascript" charset="utf-8">
-      if (window.top.frames.main) document.body.className = 'frames';
-    </script>
-
-    <div id="content">
-      <div class="breadcrumbs"><%= module_breadcrumbs(config, all, module) %></div>
+    <%= head_template(config, %{id: :module, module: module.id}) %>
+    <%= alias ExDoc.Formatter.HTML, as: H %>
+    <%= sidebar_template(config, H.filter_list(:modules, all), H.filter_list(:exceptions, all), H.filter_list(:protocols, all)) %>
 
       <h1>
         <%= module.id %>
         <%= if module.type do %>
           <small><%= module.type %></small>
         <% end %>
+        <%= if module.source do %>
+          <a href="<%= module.source %>" title="View Source" class="view-source" rel="help">
+            <i class="fa fa-code"></i>
+          </a>
+        <% end %>
       </h1>
 
-      <ul class="summary_links">
-        <%= unless Enum.empty?(functions) and Enum.empty?(macros) do %>
-          <li><a href="#summary">Summary</a></li>
-        <% end %>
-        <%= unless Enum.empty?(functions) do %>
-          <li><a href="#functions_details">Functions</a></li>
-        <% end %>
-        <%= unless Enum.empty?(macros) do %>
-          <li><a href="#macros_details">Macros</a></li>
-        <% end %>
-        <%= unless Enum.empty?(callbacks) do %>
-          <li><a href="#callbacks_details">Callbacks</a></li>
-        <% end %>
-        <%= unless Enum.empty?(types) do %>
-          <li><a href="#types_details">Types</a></li>
-        <% end %>
-      </ul>
-
       <%= if module.moduledoc do %>
-        <div id="moduledoc" class="docstring">
+        <section id="moduledoc" class="docstring">
           <%= to_html(module.moduledoc) %>
-        </div>
+        </section>
       <% end %>
 
-      <%= if module.source do %>
-        <a href="<%= module.source %>" class="view_source">Source</a>
-      <% end %>
-
-      <%= unless Enum.empty?(functions) and Enum.empty?(macros) do %>
-        <h2 id="summary">Summary<div class="detail_header_links"><%= to_top_link() %></div></h2>
-        <table class="summary">
-          <%= for node <- Enum.sort(functions ++ macros, &(&1.id <= &2.id)), do: summary_template(node) %>
-        </table>
+      <%= unless Enum.empty?(types) and Enum.empty?(functions) and Enum.empty?(macros) and Enum.empty?(callbacks) do %>
+        <section id="summary_details" class="details-list">
+          <h1 id="summary" class="section-heading">Summary</h1>
+          <%= summary_template "types", types %>
+          <%= summary_template "functions", functions %>
+          <%= summary_template "macros", macros %>
+          <%= summary_template "callbacks", callbacks %>
+        </section>
       <% end %>
 
       <%= unless Enum.empty?(types) do %>
-        <div id="types_details" class="details_list">
-          <h2>Types <%= to_top_link() %></h2>
-          <%= for node <- types, do: type_detail_template(node, module) %>
-        </div>
+        <section id="types_details" class="types details-list">
+          <h1 class="section-heading">Types</h1>
+          <div class="types-list">
+            <%= for node <- types, do: type_detail_template(node, module) %>
+          </div>
+        </section>
       <% end %>
 
       <%= unless Enum.empty?(functions) do %>
-        <div id="functions_details" class="details_list">
-          <h2>Functions</h2>
+        <section id="functions_details" class="details-list">
+          <h1 class="section-heading">Functions</h1>
           <%= for node <- functions, do: detail_template(node, module) %>
-        </div>
+        </section>
       <% end %>
 
       <%= unless Enum.empty?(macros) do %>
-        <div id="macros_details" class="details_list">
-          <h2>Macros</h2>
+        <section id="macros_details" class="details-list">
+          <h1 class="section-heading">Macros</h1>
           <%= for node <- macros, do: detail_template(node, module) %>
-        </div>
+        </section>
       <% end %>
 
       <%= unless Enum.empty?(callbacks) do %>
-        <div id="callbacks_details" class="details_list">
-          <h2>Callbacks</h2>
+        <section id="callbacks_details" class="details-list">
+          <h1 class="section-heading">Callbacks</h1>
           <%= for node <- callbacks, do: detail_template(node, module) %>
-        </div>
+        </section>
       <% end %>
-    </div>
-  </body>
-</html>
+    <%= footer_template %>

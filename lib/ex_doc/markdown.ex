@@ -7,8 +7,12 @@ defmodule ExDoc.Markdown do
 
   @markdown_processor_key :markdown_processor
 
+  import ExDoc.Formatter.HTML, only: [pretty_codeblocks: 1]
+
   def to_html(text) when is_binary(text) do
-    get_markdown_processor().to_html(text)
+    text = get_markdown_processor().to_html(text) |> pretty_codeblocks
+
+    text
   end
 
   defp get_markdown_processor() do

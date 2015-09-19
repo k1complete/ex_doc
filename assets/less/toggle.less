@@ -1,0 +1,30 @@
+body.sidebar-closed .sidebar-toggle {
+  display: block;
+}
+
+.sidebar-toggle {
+  position: fixed;
+  z-index: 99;
+  left: 18px;
+  top: 28px;
+  background-color: transparent;
+  border: none;
+  padding: 0;
+  transition: color 0.3s ease-in-out;
+
+  &:hover {
+    color: @gray;
+  }
+
+  &:active,
+  &:hover,
+  &:focus {
+    outline: none;
+  }
+}
+
+@media screen and (min-width: 768px) {
+  .sidebar-toggle {
+    display: none;
+  }
+}

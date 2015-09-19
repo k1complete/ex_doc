@@ -1,0 +1,76 @@
+<div class="main">
+<button class="sidebar-toggle">
+  <i class="fa fa-bars"></i>
+</button>
+<section class="sidebar">
+  <button class="sidebar-toggle">
+    <i class="fa fa-bars"></i>
+  </button>
+
+  <%= if url = config.homepage_url || config.source_url do %>
+    <a href="<%= url %>" class="sidebar-projectLink">
+      <div class="sidebar-projectDetails">
+        <h1 class="sidebar-projectName">
+          <%= config.project %>
+        </h1>
+        <h2 class="sidebar-projectVersion">
+          v<%= config.version %>
+        </h2>
+      </div>
+      <%= if config.logo do %>
+        <img src="<%= logo_path(config) %>" alt="<%= config.project %>" class="sidebar-projectImage">
+      <% end %>
+    </a>
+  <% else %>
+    <div class="sidebar-projectDetails sidebar-projectLink">
+      <h1 class="sidebar-projectName">
+        <%= config.project %>
+      </h1>
+      <h2 class="sidebar-projectVersion">
+        v<%= config.version %>
+      </h2>
+    </div>
+    <%= if config.logo do %>
+      <img src="<%= logo_path(config) %>" alt="<%= config.project %>" class="sidebar-projectImage">
+    <% end %>
+  <% end %>
+
+  <div class="sidebar-search">
+    <i class="fa fa-search"></i>
+    <input type="text" class="sidebar-searchInput" placeholder="search" autocomplete="off" results="0" />
+  </div>
+
+  <ul class="sidebar-mainNav">
+    <%= for extra <- Enum.sort(config.extras) do %>
+      <li><a href="<%= extra_title(extra) %>.html"><%= extra_title(extra) %></a></li>
+    <%= end %>
+
+    <li><a href="overview.html">Overview</a></li>
+  </ul>
+
+  <ul class="sidebar-listNav">
+    <%= if Enum.empty?(modules) do %>
+      <li role="presentation" class="disabled">Modules</li>
+    <% else %>
+      <li><a id="modules_list" href="#full_list">Modules</a></li>
+    <% end %>
+
+    <%= if Enum.empty?(exceptions) do %>
+      <li role="presentation" class="disabled">Exceptions</li>
+    <% else %>
+      <li><a id="exceptions_list" href="#full_list">Exceptions</a></li>
+    <% end %>
+
+    <%= if Enum.empty?(protocols) do %>
+      <li role="presentation" class="disabled">Protocols</li>
+    <% else %>
+      <li><a id="protocols_list" href="#full_list">Protocols</a></li>
+    <% end %>
+  </ul>
+
+  <ul id="full_list" class="sidebar-fullList"></ul>
+  <div class="sidebar-noResults"></div>
+</section>
+
+<section id="content" class="content">
+  <div class="content-inner">

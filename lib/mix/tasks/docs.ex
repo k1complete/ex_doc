@@ -1,15 +1,16 @@
 defmodule Mix.Tasks.Docs do
   use Mix.Task
 
-  @shortdoc "Generate HTML documentation for the project"
+  @shortdoc "Generate documentation for the project"
   @recursive true
+
   @moduledoc """
   Uses ExDoc to generate a static web page from the docstrings extracted from
   all of the project's modules.
 
   ## Command line options
 
-  * `--output`, `-o` - output directory for the generated docs; default: `"docs"`
+  * `--output`, `-o` - output directory for the generated docs; default: `"doc"`
 
   ## Configuration
 
@@ -22,15 +23,13 @@ defmodule Mix.Tasks.Docs do
   main configuration. The docs options should be a keyword list or a function
   returning a keyword list that will be lazily executed.
 
-  * `:output` - output directory for the generated docs; default: docs.
+  * `:output` - output directory for the generated docs; default: "doc".
     May be overriden by command line argument.
 
-  * `:readme` - boolean indicating whether a project README should be created
-    from a README.md; default: `false`.
+  * `:formatter` - doc formatter to use; default: "html".
 
-  * `:formatter` - doc formatter to use; default: html.
-
-  * `:source_root` - path to the source code root directory; default: . (current directory).
+  * `:source_root` - path to the source code root directory;
+    default: "." (current directory).
 
   * `:source_beam` - path to the beam directory; default: mix's compile path.
 
@@ -40,18 +39,26 @@ defmodule Mix.Tasks.Docs do
   * `:source_ref` - the branch/commit/tag used for source link inference.
     Ignored if `:source_url_pattern` is provided; default: master.
 
-  * `:main` - main page of the documentation. It may be a module or a
-    generated page, like "overview" or "README";
+  * `:main` - main page of the documentation. It may be a module or a generated page,
+    like "overview" or "readme"; default: "overview" when --formatter is "html".
+
+  * `:logo` - Path to the image logo of the project (only PNG or JPEG accepted)
+    The image size will be 64x64 when --formatter is "html".
+
+  * `:extras` - List of strings, each one must indicate the path to additional
+    Markdown pages (e.g. `["README.md", "CONTRIBUTING.md"]`); default: `[]`
   """
 
   @doc false
   def run(args, config \\ Mix.Project.config, generator \\ &ExDoc.generate_docs/3) do
     Mix.Task.run "compile"
 
-    { cli_opts, args, _ } = OptionParser.parse(args, aliases: [o: :output], switches: [output: :string])
+    {cli_opts, args, _} = OptionParser.parse(args,
+                            aliases: [o: :output],
+                            switches: [output: :string])
 
     if args != [] do
-      raise Mix.Error, message: "Extraneous arguments on the command line"
+      Mix.raise "Extraneous arguments on the command line"
     end
 
     project = (config[:name] || config[:app]) |> to_string
@@ -62,17 +69,17 @@ defmodule Mix.Tasks.Docs do
       options = Keyword.put(options, :source_url, source_url)
     end
 
-    cond do
-      is_nil(options[:main]) ->
-        # Try generating main module's name from the app name
-        options = Keyword.put(options, :main, (config[:app] |> Atom.to_string |> Mix.Utils.camelize))
+    options =
+      cond do
+        is_nil(options[:main]) ->
+          Keyword.put(options, :main, "overview")
 
-      is_atom(options[:main]) ->
-        options = Keyword.update!(options, :main, &inspect/1)
+        is_atom(options[:main]) ->
+          Keyword.update!(options, :main, &inspect/1)
 
-      is_binary(options[:main]) ->
-        options
-    end
+        is_binary(options[:main]) ->
+          options
+      end
 
     options = Keyword.put_new(options, :source_beam, Mix.Project.compile_path)
 
@@ -82,8 +89,8 @@ defmodule Mix.Tasks.Docs do
   end
 
   defp log(index) do
-    Mix.shell.info "%{green}Docs successfully generated."
-    Mix.shell.info "%{green}View them at #{inspect index}."
+    Mix.shell.info [:green, "Docs successfully generated."]
+    Mix.shell.info [:green, "View them at #{inspect index}."]
   end
 
   defp get_docs_opts(config) do

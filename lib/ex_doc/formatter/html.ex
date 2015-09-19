@@ -1,38 +1,56 @@
 defmodule ExDoc.Formatter.HTML do
-  @moduledoc """
-  Provide HTML-formatted documentation
-  """
+  @moduledoc false
 
   alias ExDoc.Formatter.HTML.Templates
   alias ExDoc.Formatter.HTML.Autolink
 
+  @main "overview"
+
   @doc """
   Generate HTML documentation for the given modules
   """
-  def run(modules, config)  do
+  @spec run(list, %ExDoc.Config{}) :: String.t
+  def run(module_nodes, config) when is_map(config) do
+    config = normalize_config(config)
     output = Path.expand(config.output)
+    File.rm_rf! output
     :ok = File.mkdir_p output
 
-    generate_index(output, config)
     generate_assets(output, config)
-    has_readme = config.readme && generate_readme(output, config)
 
-    all = Autolink.all(modules)
+    all = Autolink.all(module_nodes)
     modules    = filter_list(:modules, all)
     exceptions = filter_list(:exceptions, all)
     protocols  = filter_list(:protocols, all)
 
+    if config.logo do
+      config = process_logo_metadata(config)
+    end
+
+    generate_extras(output, module_nodes, config, modules, exceptions, protocols)
+    generate_index(output, config)
     generate_overview(modules, exceptions, protocols, output, config)
-    generate_list(:modules, modules, all, output, config, has_readme)
-    generate_list(:exceptions, exceptions, all, output, config, has_readme)
-    generate_list(:protocols, protocols, all, output, config, has_readme)
+    generate_not_found(modules, exceptions, protocols, output, config)
+    generate_sidebar_items(modules, exceptions, protocols, output)
+    generate_list(modules, all, output, config)
+    generate_list(exceptions, all, output, config)
+    generate_list(protocols, all, output, config)
 
     Path.join(config.output, "index.html")
   end
 
+  # Builds `config` by setting default values and checking for non-valid ones.
+  @spec normalize_config(%ExDoc.Config{}) :: %ExDoc.Config{}
+  defp normalize_config(config) when is_map(config) do
+    if config.main == "index" do
+      raise ArgumentError, message: "\"main\" cannot be set to \"index\", otherwise it will recursively link to itself"
+    end
+
+    Map.put(config, :main, config.main || @main)
+  end
+
   defp generate_index(output, config) do
-    content = Templates.index_template(config)
-    :ok = File.write("#{output}/index.html", content)
+    generate_redirect(output, "index.html", config, "#{config.main}.html")
   end
 
   defp generate_overview(modules, exceptions, protocols, output, config) do
@@ -40,9 +58,20 @@ defmodule ExDoc.Formatter.HTML do
     :ok = File.write("#{output}/overview.html", content)
   end
 
+  defp generate_not_found(modules, exceptions, protocols, output, config) do
+    content = Templates.not_found_template(config, modules, exceptions, protocols)
+    :ok = File.write("#{output}/404.html", content)
+  end
+
+  defp generate_sidebar_items(modules, exceptions, protocols, output) do
+    input = for node <- [%{id: "modules", value: modules}, %{id: "exceptions", value: exceptions}, %{id: "protocols", value: protocols}], !Enum.empty?(node.value), do: node
+    content = Templates.create_sidebar_items(input)
+    :ok = File.write("#{output}/dist/sidebar_items.js", content)
+  end
+
   defp assets do
-    [{ templates_path("css/*.css"), "css" },
-     { templates_path("js/*.js"), "js" }]
+    [{ templates_path("dist/*.{css,js}"), "dist" },
+     { templates_path("fonts/*.{eot,svg,ttf,woff,woff2}"), "fonts" }]
   end
 
   defp generate_assets(output, _config) do
@@ -57,22 +86,68 @@ defmodule ExDoc.Formatter.HTML do
     end
   end
 
-  defp generate_readme(output, config) do
-    File.rm("#{output}/README.html")
-    write_readme(output, File.read("README.md"), config)
+  defp generate_extras(output, module_nodes, config, modules, exceptions, protocols) do
+    config.extras
+    |> Enum.map(&Task.async(fn -> generate_extra(&1, output, module_nodes, config, modules, exceptions, protocols) end))
+    |> Enum.map(&Task.await/1)
   end
 
-  defp write_readme(output, {:ok, content}, config) do
-    readme_html = Templates.readme_template(config, content)
-    # Allow using nice codeblock syntax for readme too.
-    readme_html = String.replace(readme_html, "<pre><code>",
-                                 "<pre class=\"codeblock\"><code>")
-    File.write("#{output}/README.html", readme_html)
-    true
+  defp generate_extra(input, output, module_nodes, config, modules, exceptions, protocols) do
+    file_extname =
+      input
+      |> Path.extname
+      |> String.downcase
+
+    if file_extname in [".md"] do
+      file_name =
+        input
+        |> Path.basename(".md")
+        |> String.upcase
+
+      content =
+        input
+        |> File.read!
+        |> Autolink.project_doc(module_nodes)
+
+      config = Map.put(config, :title, file_name)
+      extra_html = Templates.extra_template(config, modules, exceptions, protocols, content) |> pretty_codeblocks
+      File.write!("#{output}/#{file_name}.html", extra_html)
+    else
+      raise ArgumentError, "file format not recognized, allowed format is: .md"
+    end
   end
 
-  defp write_readme(_, _, _) do
-    false
+  defp process_logo_metadata(config) do
+    output = "#{config.output}/assets"
+    File.mkdir_p! output
+    file_extname = Path.extname(config.logo) |> String.downcase
+
+    if file_extname in ~w(.png .jpg) do
+      file_name = "#{output}/logo#{file_extname}"
+      File.copy!(config.logo, file_name)
+      Map.put(config, :logo, Path.basename(file_name))
+    else
+      raise ArgumentError, "image format not recognized, allowed formats are: .jpg, .png"
+    end
+  end
+
+  defp generate_redirect(output, file_name, config, redirect_to) do
+    content = Templates.redirect_template(config, redirect_to)
+    :ok = File.write("#{output}/#{file_name}", content)
+  end
+
+  @doc false
+  # Helper to handle plain code blocks (```...```) with and without
+  # language specification and indentation code blocks
+  def pretty_codeblocks(bin) do
+    bin = Regex.replace(~r/<pre><code(\s+class=\"\")?>\s*iex&gt;/,
+                        # Add "elixir" class for now, until we have support for
+                        # "iex" in highlight.js
+                        bin, "<pre><code class=\"iex elixir\">iex&gt;")
+    bin = Regex.replace(~r/<pre><code(\s+class=\"\")?>/,
+                        bin, "<pre><code class=\"elixir\">")
+
+    bin
   end
 
   @doc false
@@ -85,22 +160,22 @@ defmodule ExDoc.Formatter.HTML do
      protocols: filter_list(:protocols, nodes)]
   end
 
-  defp filter_list(:modules, nodes) do
+  def filter_list(:modules, nodes) do
     Enum.filter nodes, &match?(%ExDoc.ModuleNode{type: x} when not x in [:exception, :protocol, :impl], &1)
   end
 
-  defp filter_list(:exceptions, nodes) do
+  def filter_list(:exceptions, nodes) do
     Enum.filter nodes, &match?(%ExDoc.ModuleNode{type: x} when x in [:exception], &1)
   end
 
-  defp filter_list(:protocols, nodes) do
+  def filter_list(:protocols, nodes) do
     Enum.filter nodes, &match?(%ExDoc.ModuleNode{type: x} when x in [:protocol], &1)
   end
 
-  defp generate_list(scope, nodes, all, output, config, has_readme) do
-    Enum.each nodes, &generate_module_page(&1, all, output, config)
-    content = Templates.list_page(scope, nodes, config, has_readme)
-    File.write("#{output}/#{scope}_list.html", content)
+  defp generate_list(nodes, all, output, config) do
+    nodes
+    |> Enum.map(&Task.async(fn -> generate_module_page(&1, all, output, config) end))
+    |> Enum.map(&Task.await/1)
   end
 
   defp generate_module_page(node, modules, output, config) do

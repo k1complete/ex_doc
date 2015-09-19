@@ -1,8 +1,10 @@
 defmodule ExDoc.CLI do
   def run(args, generator \\ &ExDoc.generate_docs/3) do
-    {opts, args, _} = OptionParser.parse(args, switches: [readme: :boolean],
-               aliases: [o: :output, f: :formatter, u: :source_url, r: :source_root,
-                         m: :main, p: :homepage_url, c: :config])
+    {opts, args, _} = OptionParser.parse(args,
+               aliases: [o: :output, f: :formatter, c: :config, r: :source_root,
+                         u: :source_url, m: :main, p: :homepage_url, l: :logo,
+                         e: :extra],
+               switches: [extra: :keep])
 
     [project, version, source_beam] = parse_args(args)
 
@@ -16,6 +18,12 @@ defmodule ExDoc.CLI do
   end
 
   defp merge_config(opts) do
+    opts
+    |> formatter_options
+    |> extra_files_options
+  end
+
+  defp formatter_options(opts) do
     case Keyword.fetch(opts, :config) do
       {:ok, config} ->
         opts
@@ -23,6 +31,14 @@ defmodule ExDoc.CLI do
         |> Keyword.put(:formatter_opts, read_config(config))
       _ -> opts
     end
+  end
+
+  defp extra_files_options(opts) do
+    extras = Keyword.get_values(opts, :extra)
+
+    opts
+    |> Keyword.delete(:extra)
+    |> Keyword.put(:extras, extras)
   end
 
   defp read_config(path) do
@@ -39,17 +55,16 @@ defmodule ExDoc.CLI do
     result
   end
 
-
   defp parse_args([_project, _version, _source_beam] = args), do: args
   defp parse_args([_, _, _ | _]) do
     IO.puts "Too many arguments.\n"
     print_usage()
-    exit(1)
+    exit {:shutdown, 1}
   end
   defp parse_args(_) do
     IO.puts "Too few arguments.\n"
     print_usage()
-    exit(1)
+    exit {:shutdown, 1}
   end
 
   defp print_usage do
@@ -61,18 +76,23 @@ defmodule ExDoc.CLI do
       ex_doc "Dynamo" "0.8.0" "_build/shared/lib/dynamo/ebin" -u "https://github.com/elixir-lang/dynamo"
 
     Options:
-      PROJECT            Project name
-      VERSION            Version number
-      BEAMS              Path to compiled beam files
-      -o, --output       Path to output docs, default: docs
-      --readme           Generate a project README from a README.md file, default: false
-      -f, --formatter    Docs formatter to use; default: html
-      -c, --config       Path to the formatter's config file
-      -r, --source-root  Path to the source code root, default: .
-      -u, --source-url   URL to the source code
-      --source-ref       Branch/commit/tag used for source link inference, default: master
-      -m, --main         The main, entry-point module in docs
-      -p  --homepage-url URL to link to for the site name
+      PROJECT             Project name
+      VERSION             Version number
+      BEAMS               Path to compiled beam files
+      -o, --output        Path to output docs, default: "doc"
+      -f, --formatter     Docs formatter to use, default: "html"
+      -c, --config        Path to the formatter's config file
+      -r, --source-root   Path to the source code root, default: "."
+      -u, --source-url    URL to the source code
+          --source-ref    Branch/commit/tag used for source link inference, default: "master"
+      -m, --main          The main, entry-point module in docs,
+                          default: "overview" when --formatter is "html"
+      -p, --homepage-url  URL to link to for the site name
+      -e, --extra         Allow users to include additional Markdown files
+                          May be given multiple times
+      -l, --logo          Path to the image logo of the project (only PNG or JPEG accepted)
+                          The image size will be 64x64 when --formatter is "html"
+                          default: `nil`
 
     ## Source linking
 

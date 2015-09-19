@@ -61,13 +61,23 @@ defmodule ExDoc.RetrieverTest do
 
   test "docs_from_files returns the specs for each non-private function" do
     [node] = docs_from_files ["TypesAndSpecs"]
-    [add, _] = node.docs
+    [add, _, _] = node.docs
 
-    assert add.id     == "add/2"
-    assert add.doc    == nil
-    assert add.type   == :def
+    assert add.id   == "add/2"
+    assert add.doc  == nil
+    assert add.type == :def
     assert Macro.to_string(add.specs) ==
            "[add(integer(), opaque()) :: integer()]"
+  end
+
+  test "docs_from_files returns the specs for non-private macros" do
+    [node] = docs_from_files ["TypesAndSpecs"]
+    [_, _, macro] = node.docs
+
+    assert macro.id   == "macro_spec/1"
+    assert macro.doc  == nil
+    assert macro.type == :defmacro
+    assert Macro.to_string(macro.specs) == "[macro_spec(term(), any()) :: {:ok, any()}]"
   end
 
   test "docs_from_files returns the spec info for each non-private module type" do
@@ -78,6 +88,7 @@ defmodule ExDoc.RetrieverTest do
     assert opaque.arity == 0
     assert opaque.id    == "opaque/0"
     assert opaque.type  == :opaque
+    assert opaque.signature == "opaque()"
     assert Macro.to_string(opaque.spec) == "opaque()"
 
     assert public.name  == :public
@@ -85,6 +96,7 @@ defmodule ExDoc.RetrieverTest do
     assert public.id    == "public/1"
     assert public.type  == :type
     assert public.doc   == "A public type"
+    assert public.signature == "public(t)"
     assert Macro.to_string(public.spec) ==
            "public(t) :: {t, String.t(), TypesAndSpecs.Sub.t(), opaque(), :ok | :error}"
 
@@ -92,6 +104,7 @@ defmodule ExDoc.RetrieverTest do
     assert ref.arity == 0
     assert ref.id    == "ref/0"
     assert ref.type  == :type
+    assert ref.signature == "ref()"
     assert Macro.to_string(ref.spec) ==
            "ref() :: {:binary.part(), public(any())}"
   end
@@ -101,6 +114,12 @@ defmodule ExDoc.RetrieverTest do
     assert node.source == "http://foo.com/bar/test/fixtures/compiled_with_docs.ex\#L1"
   end
 
+  test "docs_from_modules fails when module is not available" do
+    config = %ExDoc.Config{source_url_pattern: "http://example.com/%{path}#L%{line}", source_root: File.cwd!}
+    assert_raise ExDoc.Retriever.Error, "module NotAvailable is not defined/available", fn ->
+      docs_from_files(["NotAvailable"], config)
+    end
+  end
 
   ## EXCEPTIONS
 
@@ -112,22 +131,30 @@ defmodule ExDoc.RetrieverTest do
   ## BEHAVIOURS
 
   test "ignore behaviours internal functions" do
-    [node] = docs_from_files ["CustomBehaviour"]
+    [node] = docs_from_files ["CustomBehaviourOne"]
     functions = Enum.map node.docs, fn(doc) -> doc.id end
     assert functions == ["hello/1"]
-    assert hd(node.docs).type == :defcallback
-    assert hd(node.docs).signature == "hello/1"
+    assert hd(node.docs).type == :callback
+    assert hd(node.docs).signature == "hello(integer)"
+  end
+
+  test "retrieves macro callbacks from behaviours" do
+    [node] = docs_from_files ["CustomBehaviourTwo"]
+    functions = Enum.map node.docs, fn(doc) -> doc.id end
+    assert functions == ["bye/1"]
+    assert hd(node.docs).type == :macrocallback
+    assert hd(node.docs).signature == "bye(integer)"
   end
 
   test "undocumented callback implementations get default doc" do
-    [node] = docs_from_files(["CustomBehaviour", "CustomBehaviourTwo", "CustomBehaviourImpl"])
+    [node] = docs_from_files(["CustomBehaviourOne", "CustomBehaviourTwo", "CustomBehaviourImpl"])
              |> Enum.filter(&match?(%ExDoc.ModuleNode{id: "CustomBehaviourImpl"}, &1))
     docs = node.docs
     assert Enum.map(docs, &(&1.id)) == ["bye/1", "hello/1"]
     assert Enum.at(docs, 0).doc ==
-      "A doc for this so it doesn't use 'Callback implementation of'"
+      "A doc for this so it doesn't use 'Callback implementation for'"
     assert Enum.at(docs, 1).doc ==
-      "Callback implementation of `CustomBehaviour.hello/1`."
+      "Callback implementation for `c:CustomBehaviourOne.hello/1`."
   end
 
   ## PROTOCOLS

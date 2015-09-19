@@ -1,8 +1,8 @@
 # ExDoc
 
-ExDoc is a tool to generate documentation for your Elixir projects. In case you are looking for documentation for Elixir itself, [check out Elixir's website](http://elixir-lang.org/).
+[![Build Status](https://secure.travis-ci.org/elixir-lang/ex_doc.svg?branch=master "Build Status")](http://travis-ci.org/elixir-lang/ex_doc) [![Coverage Status](https://coveralls.io/repos/elixir-lang/ex_doc/badge.svg?branch=master&service=github)](https://coveralls.io/github/elixir-lang/ex_doc?branch=master)
 
-To use ExDoc, you need Elixir master.
+ExDoc is a tool to generate documentation for your Elixir projects. In case you are looking for documentation for Elixir itself, [check out Elixir's website](http://elixir-lang.org/).
 
 ## Using ExDoc with Mix
 
@@ -11,7 +11,7 @@ To use ExDoc in your Mix projects, first add ExDoc as a dependency:
 ```elixir
 def deps do
   [{:earmark, "~> 0.1", only: :dev},
-   {:ex_doc, "~> 0.5", only: :dev}]
+   {:ex_doc, "~> 0.8", only: :dev}]
 end
 ```
 
@@ -21,12 +21,14 @@ ExDoc will automatically pull in information from your project, like the applica
 
 ```elixir
 def project do
-  [app: :repo
+  [app: :repo,
    version: "0.1.0-dev",
    name: "REPO",
    source_url: "https://github.com/USER/REPO",
-   homepage_url: "http://YOUR_PROJECT_HOMEPAGE"
-   deps: deps]
+   homepage_url: "http://YOUR_PROJECT_HOMEPAGE",
+   deps: deps,
+   docs: [logo: "path/to/logo.png",
+          extras: ["README.md", "CONTRIBUTING.md"]]]
 end
 ```
 
@@ -49,15 +51,15 @@ You can ExDoc via the command line as follows:
 
 3. Next invoke the ex_doc executable from your project:
 
-        PATH_TO_YOUR_EXDOC/bin/ex_doc "PROJECT_NAME" "PROJECT_VERSION" path/to/project/ebin -m "PROJECT_MODULE" -u "https://github.com/GITHUB_USER/GITHUB_REPO"
+        PATH_TO_YOUR_EXDOC/bin/ex_doc "PROJECT_NAME" "PROJECT_VERSION" path/to/project/ebin -m "PROJECT_MODULE" -u "https://github.com/GITHUB_USER/GITHUB_REPO" -l path/to/logo.png
 
 For example, here are some acceptable values:
 
     PROJECT_NAME    => Dynamo
     PROJECT_VERSION => 0.1.0
-    PROJECT_MODULE  => Dynamo (the main module provided by the library)
+    PROJECT_MODULE  => Ecto (the main module provided by the library)
     GITHUB_USER     => elixir-lang
-    GITHUB_REPO     => dynamo
+    GITHUB_REPO     => ecto
 
 ## Changing the Markdown tool
 
@@ -77,6 +79,6 @@ To see all options available when generating docs, just run `mix help docs`.
 
 # License
 
-ExDoc source code is released under Apache 2 License with snippets under MIT-LICENSE.
+ExDoc source code is released under Apache 2 License. The generated contents, however, are under different licenses based on projects used to help render html, including css, js and other assets.
 
-Check LICENSE file for more information.
+Check the [LICENSE](LICENSE) file for more information.
