@@ -25,8 +25,8 @@ defmodule ExDoc.Retriever do
   """
 
   alias ExDoc.Retriever.Error
-  alias Kernel.Typespec
-
+#  alias Kernel.Typespec
+  alias Exgettext.Typespec
   @doc """
   Extract documentation from all modules in the specified directory
   """
